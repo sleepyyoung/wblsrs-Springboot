@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>微博历史热搜 - 按内容查询 - 精确查询</title>
+    <link rel="stylesheet" th:href="@{/layui/css/layui.css}" media="all">
+    <script th:src="@{/layDate/laydate/laydate.js}" charset="utf-8"></script>
+    <script th:src="@{/layui/layui.js}" charset="utf-8"></script>
+    <script th:src="@{/js/jquery.min.js}" charset="utf-8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        body {
+            padding: 10px;
+            width: 95%;
+            margin: 0 auto;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-row" style="margin-top: 2%;">
+    <div class="layui-col-md3">
+        <label class="layui-form-label" style="width: 170px;text-align: center;">请输入查询内容：</label>
+    </div>
+
+    <div class="layui-col-md4">
+        <input type="text" class="layui-input" id="test5" placeholder="请输入查询内容">
+    </div>
+    <div class="layui-col-md4">
+        <button style="margin-left: 20px;" class="layui-btn layui-btn-primary" onclick="show($('#test5').val())">点击查询
+        </button>
+    </div>
+</div>
+<div id="main" style="width: 100%;height:800px;margin-left: auto;margin-right: auto;margin-top: 2%;"></div>
+<script type="text/javascript">
+    const myChart = echarts.init(document.getElementById('main'));
+
+    function show(content) {
+        if (content.replace(" ", "") === "") {
+            layer.msg("查询内容不能为空！");
+            return;
+        }
+        myChart.showLoading();
+        $.get("/api/precise-query-by-content/" + content).done(function (data) {
+            const d = JSON.parse(data);
+            myChart.hideLoading();
+            myChart.setOption({
+                title: {
+                    text: d['title'],
+                    left: 'center'
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        animation: false
+                    }
+                },
+                legend: {
+                    data: ['排名', '热度'],
+                    left: 10
+                },
+                toolbox: {
+                    feature: {
+                        dataZoom: {
+                            yAxisIndex: 'none'
+                        },
+                        restore: {},
+                        saveAsImage: {}
+                    }
+                },
+                axisPointer: {
+                    link: {xAxisIndex: 'all'}
+                },
+                dataZoom: [
+                    {
+                        show: true,
+                        realtime: true,
+                        start: 0,
+                        end: 100,
+                        xAxisIndex: [0, 1],
+                        brushStyle: {
+                            color: "rgba(115, 248, 248, 1)",
+                            borderColor: "rgba(115, 248, 248, 1)"
+                        }
+                    },
+                    {
+                        type: 'inside',
+                        realtime: true,
+                        xAxisIndex: [0, 1],
+                        brushStyle: {
+                            color: "rgba(115, 248, 248, 1)",
+                            borderColor: "rgba(115, 248, 248, 1)"
+                        }
+                    }
+                ],
+                grid: [{
+                    left: 50,
+                    right: 50,
+                    height: '35%'
+                }, {
+                    left: 50,
+                    right: 50,
+                    top: '55%',
+                    height: '35%'
+                }],
+                xAxis: [
+                    {
+                        axisTick: {show: false},
+                        type: 'category',
+                        boundaryGap: false,
+                        axisLine: {show: false},
+                        data: d['timeList']
+                    },
+                    {
+                        position: "top",
+                        offset: 30,
+                        axisTick: {show: false},
+                        gridIndex: 1,
+                        type: 'category',
+                        boundaryGap: false,
+                        axisLine: {show: false},
+                        data: d['timeList']
+                    }
+                ],
+                yAxis: [
+                    {
+                        axisLine: {show: true},
+                        align: "right",
+                        fontWeight: "bold",
+                        nameLocation: "start",
+                        name: '排名',
+                        type: 'value',
+                        inverse: true
+                    },
+                    {
+                        axisLabel: {rotate: 50},
+                        axisLine: {show: true},
+                        align: "right",
+                        fontWeight: "bold",
+                        nameLocation: "end",
+                        gridIndex: 1,
+                        name: '热度',
+                        type: 'value'
+                    }
+                ],
+                series: [
+                    {
+                        name: '排名',
+                        type: 'line',
+                        symbolSize: 8,
+                        hoverAnimation: false,
+                        data: d['rankList']
+                    },
+                    {
+                        name: '热度',
+                        type: 'line',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        symbolSize: 8,
+                        hoverAnimation: false,
+                        data: d['hotList']
+                    }
+                ]
+            });
+        })
+    }
+
+    window.onresize = function(){
+        myChart.resize();
+    }
+</script>
+</body>
+</html>

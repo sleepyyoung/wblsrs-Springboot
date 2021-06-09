@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>微博历史热搜 - 按内容查询 - 模糊查询</title>
+    <link rel="stylesheet" th:href="@{/layui/css/layui.css}" media="all">
+    <script th:src="@{/layDate/laydate/laydate.js}" charset="utf-8"></script>
+    <script th:src="@{/layui/layui.js}" charset="utf-8"></script>
+    <script th:src="@{/js/jquery.min.js}" charset="utf-8"></script>
+</head>
+<body>
+<div class="layui-row" style="margin-top: 2%;">
+    <div class="layui-col-md3">
+        <label class="layui-form-label" style="width: 170px;text-align: center;">请输入查询内容：</label>
+    </div>
+
+    <div class="layui-col-md4">
+        <input type="text" class="layui-input" id="test5" placeholder="请输入查询内容">
+    </div>
+    <div class="layui-col-md4">
+        <button style="margin-left: 20px;" class="layui-btn layui-btn-primary" onclick="show($('#test5').val())">点击查询
+        </button>
+    </div>
+</div>
+<table class="layui-hide" id="test" lay-filter="test"></table>
+<script type="text/html" id="toolbarDemo"></script>
+<script>
+    function show(content) {
+        if (content.replace(" ", "") === "") {
+            layer.msg("查询内容不能为空！");
+            return;
+        }
+        layui.use('table', function () {
+            const table = layui.table;
+            table.render({
+                elem: '#test'
+                , url: '/api/fuzzy-query-by-content/' + content
+                , title: '模糊查询'
+                , page: true
+                , toolbar: '#toolbarDemo'
+                , cellMinWidth: 100
+                , totalRow: true
+                , cols: [
+                    [
+                        {field: 'title', title: '标题', width: '60%'}
+                        , {field: 'first', title: '首次上榜时间', sort: true, width: '20%', align: 'center'}
+                        , {field: 'last', title: '最后在榜时间', sort: true, width: '20%', align: 'center'}
+                    ]
+                ]
+            });
+
+            table.on('row(test)', function (obj) {
+                window.open("https://s.weibo.com/weibo?q=" + encodeURIComponent(obj.data['title'].toString().replace("<span style='color:red'>", "").replace("</span>", "")));
+                obj.tr.addClass('layui-table-click').siblings().removeClass('layui-table-click');
+            });
+
+        });
+    }
+</script>
+</body>
+</html>
