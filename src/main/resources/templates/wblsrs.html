@@ -600,6 +600,7 @@
                 let hot = obj[i]['hot'];
                 if (hot === 0) {
                     hot = '';
+                    // rank = "[推荐位]";
                 }
                 const href = "https://s.weibo.com/weibo?q=" + encodeURIComponent(obj[i]['title']);
                 const li = $('<li><a target="_blank" href="' + href + '">' + rank + '. &nbsp;' + title + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + hot + '</a></li>');

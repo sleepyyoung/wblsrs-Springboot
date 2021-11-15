@@ -1,9 +1,11 @@
 package com.philpy.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.philpy.config.SpiderHeaderConfig;
 import com.philpy.pojo.Wblsrs;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -27,6 +29,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +45,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Api(tags = "Elasticsearch微博热搜数据查询控制器", description = "“微博历史热搜”のElasticsearch接口查询API，以“/wblsrs/api/”开头")
+@Api(tags = "Elasticsearch微博热搜数据查询控制器",
+        description = "“微博历史热搜”のElasticsearch接口查询API，以“/api/”开头")
 @RequestMapping("/api/")
 @RestController
 public class ElasticsearchController {
@@ -60,6 +64,9 @@ public class ElasticsearchController {
 
     @Value("${wblsrs.url.socialevent}")
     private String socialevent;
+
+    @Autowired
+    private SpiderHeaderConfig headerConfig;
 
     /*
      * GET /wblsrs/_search
@@ -113,7 +120,6 @@ public class ElasticsearchController {
         List<? extends Terms.Bucket> buckets = result.getBuckets();
         return buckets.size();
     }
-
 
     /*
      * GET /wblsrs/_search
@@ -297,18 +303,23 @@ public class ElasticsearchController {
                 .subAggregation(AggregationBuilders.sum("sum").field("hot"));
         searchSourceBuilder.aggregation(agg);
         request.source(searchSourceBuilder);
-        Terms result = restHighLevelClient.search(request, RequestOptions.DEFAULT).getAggregations().get("result");
+        Terms result = null;
         List<Map<String, Object>> list = new ArrayList<>();
-        for (Terms.Bucket bucket : result.getBuckets()) {
-            Map<String, Object> map = new HashMap<>();
-            Aggregations bucketAggregations = bucket.getAggregations();
-            Sum sum = bucketAggregations.get("sum");
-            double s = sum.getValue();
-            if (s != 0) {
-                map.put("name", bucket.getKeyAsString());
-                map.put("value", BigDecimal.valueOf(s).toPlainString().split("\\.")[0]);
-                list.add(map);
+        try {
+            result = restHighLevelClient.search(request, RequestOptions.DEFAULT).getAggregations().get("result");
+            list = new ArrayList<>();
+            for (Terms.Bucket bucket : result.getBuckets()) {
+                Map<String, Object> map = new HashMap<>();
+                Aggregations bucketAggregations = bucket.getAggregations();
+                Sum sum = bucketAggregations.get("sum");
+                double s = sum.getValue();
+                if (s != 0) {
+                    map.put("name", bucket.getKeyAsString());
+                    map.put("value", BigDecimal.valueOf(s).toPlainString().split("\\.")[0]);
+                    list.add(map);
+                }
             }
+        } catch (ElasticsearchStatusException ignored) {
         }
         return JSON.toJSONString(list);
     }
@@ -365,8 +376,12 @@ public class ElasticsearchController {
                 .field("title.keyword")
                 .size(999999999));
         request.source(searchSourceBuilder);
-        Terms result = restHighLevelClient.search(request, RequestOptions.DEFAULT).getAggregations().get("result");
-        return result.getBuckets().size();
+        try {
+            Terms result = restHighLevelClient.search(request, RequestOptions.DEFAULT).getAggregations().get("result");
+            return result.getBuckets().size();
+        } catch (ElasticsearchStatusException ignored) {
+            return 0;
+        }
     }
 
 
@@ -406,11 +421,12 @@ public class ElasticsearchController {
     @GetMapping("/now-realtimehot")
     public String nowRealtimehot() throws IOException {
         ArrayList<Wblsrs> list = new ArrayList<>();
-        Element id = Jsoup.parse(new URL(realtimehot), 30000).getElementById("pl_top_realtimehot");
+        Document document = Jsoup.connect(realtimehot).headers(headerConfig.getHeader()).get();
+        Element id = document.getElementById("pl_top_realtimehot");
         for (Element element : id.getElementsByTag("tr")) {
-            if (!element.className().equals("thead_tr")) {
+            if (!"thead_tr".equals(element.className())) {
                 Elements tds = element.getElementsByTag("td");
-                if (!tds.get(2).text().equals("荐")) {
+                if (!"荐".equals(tds.get(2).text())) {
                     int rank;
                     try {
                         rank = Integer.parseInt(tds.get(0).text());
@@ -424,7 +440,7 @@ public class ElasticsearchController {
                     } catch (Exception e) {
                         hot = 0;
                     }
-                    list.add(new Wblsrs(rank,title, hot));
+                    list.add(new Wblsrs(rank, title, hot));
                 }
             }
         }
@@ -435,16 +451,14 @@ public class ElasticsearchController {
     @GetMapping("/now-socialevent")
     public String nowSocialevent() throws IOException {
         ArrayList<Wblsrs> list = new ArrayList<>();
-        Element id = Jsoup.parse(new URL(socialevent), 30000).getElementById("pl_top_realtimehot");
+        Document document = Jsoup.connect(socialevent).headers(headerConfig.getHeader()).get();
+        Element id = document.getElementById("pl_top_realtimehot");
         for (Element element : id.getElementsByTag("tr")) {
-            if (!element.className().equals("thead_tr")) {
+            if (!"thead_tr".equals(element.className())) {
                 String title = element.getElementsByTag("td").get(1).getElementsByTag("a").get(0).text();
                 list.add(new Wblsrs(title));
             }
         }
         return JSON.toJSONString(list);
     }
-
-
-
 }
